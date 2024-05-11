@@ -1,0 +1,92 @@
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+    </head>
+    <body>
+        <div id="app"></div>
+        <script src="userlike.min.js"></script>
+        <script>
+            const WIDGET_KEY = '5b42c99bd9b54449819aa0c00e125b889e82c4c053594c5890e884e391254d26'
+            async function createApi() {
+              const result = await UserlikeMessenger.createMessenger({
+                version: 1,
+                widgetKey: WIDGET_KEY,
+              });
+              console.log(result.kind);
+              if (result.kind === 'error') throw new Error(result.error);
+
+              const { api } = result.value;
+              console.log({ api });
+              if (api === null) {
+                throw new Error('api reached end-of-life, please check documentation and upgrade.');
+              }
+
+              return api;
+            }
+
+            function countUnreadTotal(state) {
+              if (state.conversations) {
+                return state.conversations.reduce((total, conversation) => {
+                  if (conversation.unread && Array.isArray(conversation.unread)) {
+                    total += conversation.unread.length;
+                  }
+                  return total;
+                }, 0);
+              }
+            }
+
+            async function subscribe(api) {
+              const subscription = api.state$.subscribe({
+                next: stateEvent => {
+                  const eventPayload = {
+                    ...stateEvent,
+                    unread: countUnreadTotal(stateEvent),
+                  };
+                  window.webkit.messageHandlers.nativeHandler.postMessage(JSON.stringify(eventPayload));
+                  if (stateEvent.state === 'minimized') {
+                    maximize(api);
+                  }
+                  console.log(stateEvent);
+                },
+                complete: () => console.log('complete'),
+              });
+              return api;
+            }
+
+            async function mount(api) {
+              const mountResult = await api.mount();
+              console.log('Mount', mountResult);
+              if (mountResult.kind === 'error') throw new Error(mountResult.error);
+              mountResult = await api.setVisibility({
+                main: true,
+                button: false,
+                notifications: false,
+              });
+              console.log('setVisibility', mountResult);
+              if (mountResult.kind === 'error') throw new Error(mountResult.error);
+              const maximizeResult = await api.maximize();
+              console.log('Maximize', maximizeResult);
+              if (maximizeResult.kind === 'error') throw new Error(maximizeResult.error);
+              return api;
+            }
+            async function maximize(api) {
+              const result = await api.maximize();
+              console.log('Maximize', result);
+              if (result.kind === 'error') throw new Error(result.error);
+              return api;
+            }
+
+            createApi()
+              .then(subscribe)
+              .then(mount)
+              .then(api => {
+                console.log('Mounted messenger with api:', api);
+                return api;
+              })
+              .catch(e => {
+                console.error(`Failed to mount messenger: ${e}`);
+              });
+            
+        </script>
+    </body>
+</html>
