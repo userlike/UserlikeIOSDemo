@@ -28,22 +28,26 @@ class WebViewCoordinator: NSObject, WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         // Handle message from JavaScript
         if message.name == "nativeHandler", let messageBody = message.body as? String {
-            print("Message from JavaScript: \(messageBody)")
             if let data = messageBody.data(using: .utf8) {
                 do {
                     if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-                        if let unreadCount = json["unread"] as? Int {
-                            onUnread?(unreadCount)
-                        } else {
-                            print("Error: Unable to find 'unread' in the JSON or it is not an integer")
+                        if let log = json["log"] as? String {
+                            print("Log from JavaScript: \(log)")
                         }
-                        if let state = json["state"] as? String {
-                            print("state \(state)")
-                            if state == "minimized" {
-                                onMinimize?()
+                        else {
+                            if let unreadCount = json["unread"] as? Int {
+                                onUnread?(unreadCount)
+                            } else {
+                                print("Error: Unable to find 'unread' in the JSON or it is not an integer")
                             }
-                        } else {
-                            print("Error: Unable to find 'state' in the JSON or it is not a string")
+                            if let state = json["state"] as? String {
+                                print("state \(state)")
+                                if state == "minimized" {
+                                    onMinimize?()
+                                }
+                            } else {
+                                print("Error: Unable to find 'state' in the JSON or it is not a string")
+                            }
                         }
                     }
                     

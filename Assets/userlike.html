@@ -6,6 +6,11 @@
         <div id="app"></div>
         <script src="userlike.min.js"></script>
         <script>
+            
+            function log(message) {
+                window.webkit.messageHandlers.nativeHandler.postMessage(JSON.stringify({"log": message}))
+            }
+            
             const WIDGET_KEY = '5b42c99bd9b54449819aa0c00e125b889e82c4c053594c5890e884e391254d26'
             async function createApi() {
               const result = await UserlikeMessenger.createMessenger({
@@ -57,36 +62,61 @@
               const mountResult = await api.mount();
               console.log('Mount', mountResult);
               if (mountResult.kind === 'error') throw new Error(mountResult.error);
-              mountResult = await api.setVisibility({
+              const visibilityResult = await api.setVisibility({
                 main: true,
                 button: false,
                 notifications: false,
               });
-              console.log('setVisibility', mountResult);
+              log(`setVisibility after mount ${visibilityResult}`);
               if (mountResult.kind === 'error') throw new Error(mountResult.error);
               const maximizeResult = await api.maximize();
-              console.log('Maximize', maximizeResult);
+              log(`maximize after mount ${maximizeResult}`);
               if (maximizeResult.kind === 'error') throw new Error(maximizeResult.error);
               return api;
             }
             async function maximize(api) {
               const result = await api.maximize();
-              console.log('Maximize', result);
+              log(`maximize ${maximizeResult}`);
               if (result.kind === 'error') throw new Error(result.error);
               return api;
             }
+
 
             createApi()
               .then(subscribe)
               .then(mount)
               .then(api => {
-                console.log('Mounted messenger with api:', api);
+                log(`Mounted messenger with api: ${api}`);
+                window.userlikeApi = api;
+
                 return api;
               })
               .catch(e => {
-                console.error(`Failed to mount messenger: ${e}`);
+                  log(`Failed to mount messenger: ${e}`);
               });
             
+            function setContactInfo(name, email) {
+                (async function() {
+                    try {
+                        let result = await window.userlikeApi.setContactInfo({ name: name, email: email });
+                        log(`setContactInfo succeeded ${result}`);
+                    } catch (error) {
+                        log(`setContactInfo error ${error}`);
+                    }
+                })();
+            }
+
+            function setCustomData(json) {
+                (async function() {
+                    try {
+                        let data = JSON.parse(json);
+                        let result = await window.userlikeApi.setCustomData(data);
+                        log(`setCustomData succeeded ${result}`);
+                    } catch (error) {
+                        log(`setCustomData error ${error}`);
+                    }
+                })();
+            }
         </script>
     </body>
 </html>
