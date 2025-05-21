@@ -20,7 +20,7 @@ class WebViewStore: ObservableObject {
 }
 
 // Class that acts as a bridge between WKWebView and SwiftUI
-class WebViewCoordinator: NSObject, WKScriptMessageHandler {
+class WebViewCoordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
     var onUnread: ((Int) -> Void)?
     var onMinimize: (()-> Void)?
     var registered = false
@@ -57,6 +57,25 @@ class WebViewCoordinator: NSObject, WKScriptMessageHandler {
             }
         }
     }
+    
+    // MARK: - Navigation delegate to catch link taps
+    func webView(_ webView: WKWebView,
+                 decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
+        }
+
+        // If it’s either a link tap or any other main-frame navigation to an external URL…
+        let isExternal = url.scheme != "file"  // assuming your local file is "file://…"
+        if isExternal {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            decisionHandler(.cancel)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
 }
 
 // SwiftUI view that uses the WKWebView
@@ -77,11 +96,13 @@ struct UserlikeViewWrapper: UIViewRepresentable {
     
     func makeUIView(context: Context) -> WKWebView {
         webViewStore.webView.configuration.userContentController.add(coordinator, name: "nativeHandler")
+        webViewStore.webView.navigationDelegate = coordinator
         if let htmlPath = Bundle.main.path(forResource: "userlike", ofType: "html") {
             let fileURL = URL(fileURLWithPath: htmlPath)
             let directoryURL = fileURL.deletingLastPathComponent()
             webViewStore.webView.loadFileURL(fileURL, allowingReadAccessTo: directoryURL)
         }
+
         return webViewStore.webView
     }
     
