@@ -20,7 +20,7 @@ class WebViewStore: ObservableObject {
 }
 
 // Class that acts as a bridge between WKWebView and SwiftUI
-class WebViewCoordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+class WebViewCoordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     var onUnread: ((Int) -> Void)?
     var onMinimize: (()-> Void)?
     var registered = false
@@ -62,6 +62,7 @@ class WebViewCoordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        print(navigationAction)
         guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
             return
@@ -75,6 +76,22 @@ class WebViewCoordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate
         } else {
             decisionHandler(.allow)
         }
+    }
+    
+    // MARK: – UI delegate (for window.open / _blank targets)
+    func webView(_ webView: WKWebView,
+                 createWebViewWith configuration: WKWebViewConfiguration,
+                 for navigationAction: WKNavigationAction,
+                 windowFeatures: WKWindowFeatures) -> WKWebView? {
+        // If there's no target frame, it's a new-window request:
+        guard navigationAction.targetFrame == nil,
+              let url = navigationAction.request.url else {
+            return nil
+        }
+
+        // Open externally instead of creating a new WKWebView
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        return nil
     }
 }
 
@@ -92,11 +109,13 @@ struct UserlikeViewWrapper: UIViewRepresentable {
         self.coordinator = WebViewCoordinator()
         self.coordinator.onUnread = onUnread
         self.coordinator.onMinimize = onMinimize
+        
     }
     
     func makeUIView(context: Context) -> WKWebView {
         webViewStore.webView.configuration.userContentController.add(coordinator, name: "nativeHandler")
         webViewStore.webView.navigationDelegate = coordinator
+        webViewStore.webView.uiDelegate = coordinator 
         if let htmlPath = Bundle.main.path(forResource: "userlike", ofType: "html") {
             let fileURL = URL(fileURLWithPath: htmlPath)
             let directoryURL = fileURL.deletingLastPathComponent()
